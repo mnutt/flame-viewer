@@ -1,0 +1,126 @@
+<html>
+<head>
+<style>
+html {
+  font-family: sans-serif;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+</style>
+</head>
+<body>
+
+<h1 style="padding: 0.5em; margin: 0;">Flame Graph Generator</h1>
+
+<div style="flex: 1; display: flex; flex-direction: row; overflow: hidden;">
+<div style="width: 300px; padding-left: 1em; padding-right: 2em; display: flex; flex-direction: column;" class="sidebar">
+
+<div class="settings" style="display: flex; padding-bottom: 1em;">
+  <div style="flex: 1;">
+    <label>Sample time (s)</label>
+    <input type="number" id="sample_time" value="20" min="0" max="120" step="1" size="5" style="width: 100%;" />
+  </div>
+
+  <div style="flex: 1; margin-left: 1em;">
+    <label>Sample rate (hz)</label>
+    <input type="number" id="sample_rate" value="99" min="1" max="997" step="1" size="5" style="width: 100%;" />
+  </div>
+</div>
+
+<h3 style="padding: 0.5em 0; margin: 0;">Processes</h3>
+
+<div class="processes" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding-right: 0.5em;">
+<% @processes.each do |process| %>
+  <div style="padding: 5px 0;">
+    <div style="display: flex;">
+      <div title="<%= process[:command] %>" style="flex: 1; font-size: 1.2em; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; margin-right: 1em; font-family: monospace; font-weight: bold; line-height: 1.6em;">
+        <%= process[:command].start_with?('/') ? File.basename(process[:command]) : process[:command] %>
+      </div>
+      <form style="margin: 0;" method="POST" action="/profile/<%= process[:pid].to_i.to_s %>">
+        <button class="profile-button">Profile</button>
+      </form>
+    </div>
+    <div style="font-size: 0.8em; display: flex;">
+      <div style="flex: 1;">
+        PID <%= process[:pid].to_i.to_s %> &nbsp;
+        STARTED <%= process[:started].upcase %></div>
+    </div>
+  </div>
+<% end %>
+</div>
+
+</div>
+
+<div class="main" style="flex: 1; padding-right: 1em;">
+<div class="result" style="width: 100%; height: 100%;">
+  <div class="message" style="display: none; font-weight: bold; text-align: center; margin-top: 3em;"></div>
+  <iframe class="flame" style="display: none; border: 0; width: 100%; height: 100%;"></iframe>
+</div>
+</div>
+</div>
+
+<script>
+  function profile(event) {
+    event.preventDefault();
+    
+    const time = parseInt(document.querySelector("#sample_time").value, 10) || 20;
+    const rate = parseInt(document.querySelector("#sample_rate").value, 10) || 99;
+
+    setLoading(`Profiling for 0 / ${time} seconds ...`);
+
+    const { target } = event;
+    const form = target.parentNode;
+    const { action } = form;
+    console.log(action);
+
+    let elapsed = 1;
+    const interval = setInterval(() => {
+      if (elapsed > time) {
+        setLoading(`Processing...`);
+      } else {
+        setLoading(`Profiling for ${elapsed++} / ${time} seconds...`);
+      }
+    }, 1000);
+
+    const url = new URL(action);
+    url.searchParams.set("sample_time", time);
+    url.searchParams.set("sample_rate", rate);
+
+    fetch(url.toString(), { method: 'POST' }).then(res => res.blob()).then(blob => {
+      clearInterval(interval);
+
+      const data = URL.createObjectURL(blob);
+      setFlame(data);
+    });
+  }
+
+  function setLoading(msg) {
+    document.querySelector(".flame").style.display = "none";
+    const message = document.querySelector(".message");
+    message.innerText = msg;
+    message.style.display = "block";
+  }
+
+  function setFlame(data) {
+    document.querySelector(".message").style.display = "none";
+    const iframe = document.querySelector(".flame");
+    if (iframe.src) {
+      URL.releaseObjectURL(iframe.src);
+    }
+    iframe.src = data;
+    iframe.style.display = "block";
+  }
+
+  const profileButtons = document.querySelectorAll(".profile-button");
+  for (let button of [...profileButtons]) {
+    button.addEventListener('click', profile);
+  }
+</script>
+
+</body>
