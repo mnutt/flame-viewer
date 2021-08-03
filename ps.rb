@@ -1,3 +1,5 @@
+# via: https://gist.github.com/es/2fd281eebcf82532a453
+
 # Ps.all to get an array of hashes
 # Example hash:
 # {
