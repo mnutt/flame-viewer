@@ -2,9 +2,17 @@ require 'sinatra'
 require './ps'
 require 'tempfile'
 
+if ENV['EUID'] == '0' && !ENV['RUN_UNSAFELY_AS_ROOT']
+  puts "You should not run this as root."
+  exit 1
+end
+
 def get_processes(search)
   Ps.all.select{|i| i[:command] =~ /#{search}/ && !i[:command].start_with?('[') }
 end
+
+# Listening on anything other than the loopback is almost certainly unsafe
+set :bind, '127.0.0.1'
 
 get '/' do
   @processes = get_processes(ENV['PROC_PATTERN'])
